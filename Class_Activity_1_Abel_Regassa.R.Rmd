@@ -1,0 +1,213 @@
+---
+title: "Class 1"
+author: "Abel Regassa"
+date: "2025-09-01"
+output: html_document
+---
+```{r}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+library(tidyverse)
+
+```
+
+
+
+
+```{r}
+Data1_csv <-
+  read_csv(
+    "https://github.com/kijohnson/Advanced-Data-Analysis/raw/refs/heads/main/Class%201%20Survey%20Fall%202025%202.csv"
+  )
+
+# Quick shape check
+dim(Data1_csv)
+```
+
+```{r}
+Data1_csv <- Data1_csv %>%
+  rename_with(
+    ~ c("id","like_cats","like_dogs","have_desert","slogan","fav_day",
+        "larkORowl","fav_food","fav_drink","fav_season","fav_month",
+        "hobby","program","specialization","stat_software","R_exp",
+        "coding_comfort","coding_length","top_three","public_health_interest",
+        "fav_num","bday","bmonth","country","state","city","highest_educ_level"),
+    .cols = 1:27
+  )
+
+# Glimpse of key variables we will use
+Data1_csv %>% select(bday, bmonth, fav_num, like_cats, like_dogs, fav_season, fav_day, larkORowl) %>% glimpse()
+```
+
+
+
+```{r}
+# 5) Check, clean, and summarize bday and bmonth
+
+# Convert to numeric so table() inspects consistently
+Data1_csv <- Data1_csv %>%
+  mutate(
+    bday_raw   = bday,
+    bmonth_raw = bmonth,
+    bday   = suppressWarnings(as.numeric(bday)),
+    bmonth = suppressWarnings(as.numeric(bmonth))
+  )
+
+# a) BEFORE cleaning
+cat("Table of bday (raw -> numeric) BEFORE cleaning:\n")
+print(table(Data1_csv$bday, useNA = "ifany"))
+
+cat("\nTable of bmonth (raw -> numeric) BEFORE cleaning:\n")
+print(table(Data1_csv$bmonth, useNA = "ifany"))
+
+# b) CLEANING: keep plausible ranges; otherwise set to NA (days 1–31, months 1–12)
+# Rationale: removes impossible values (e.g., 0, 35, 13) but preserves valid entries.
+Data1_csv <- Data1_csv %>%
+  mutate(
+    bday   = ifelse(!is.na(bday)   & bday   >= 1 & bday   <= 31, bday,   NA_real_),
+    bmonth = ifelse(!is.na(bmonth) & bmonth >= 1 & bmonth <= 12, bmonth, NA_real_)
+  )
+
+# AFTER cleaning
+cat("\nTable of bday AFTER cleaning:\n")
+print(table(Data1_csv$bday, useNA = "ifany"))
+
+cat("\nTable of bmonth AFTER cleaning:\n")
+print(table(Data1_csv$bmonth, useNA = "ifany"))
+
+# c) Medians (numeric, excluding NAs)
+median_bday   <- median(Data1_csv$bday,   na.rm = TRUE)
+median_bmonth <- median(Data1_csv$bmonth, na.rm = TRUE)
+
+cat("\nMedian bday (1–31): ", median_bday, "\n", sep = "")
+cat("Median bmonth (1–12): ", median_bmonth, "\n", sep = "")
+```
+
+
+```{r}
+# b) CLEANING STEP
+# Explanation:
+# - Valid days are 1–31; valid months are 1–12.
+# - Any values outside these ranges (or non-numeric coerced to NA) are set to NA.
+# - This preserves valid observations and removes impossible dates (e.g., day=0, 35; month=13, 0).
+# - We are not enforcing month/day matching (e.g., day 31 in April), only basic range validity as requested.
+
+Data1_csv <- Data1_csv %>%
+  mutate(
+    bday   = ifelse(!is.na(bday)   & bday   >= 1 & bday   <= 31, bday,   NA_real_),
+    bmonth = ifelse(!is.na(bmonth) & bmonth >= 1 & bmonth <= 12, bmonth, NA_real_)
+  )
+
+# Show frequency tables AFTER cleaning
+cat("Table of bday AFTER cleaning:\n")
+print(table(Data1_csv$bday, useNA = "ifany"))
+
+cat("\nTable of bmonth AFTER cleaning:\n")
+print(table(Data1_csv$bmonth, useNA = "ifany"))
+```
+
+
+```{r}
+# c) Compute medians (ensuring numeric, excluding NAs)
+median_bday   <- median(Data1_csv$bday,   na.rm = TRUE)
+median_bmonth <- median(Data1_csv$bmonth, na.rm = TRUE)
+
+cat("Median bday (1–31): ", median_bday, "\n", sep = "")
+cat("Median bmonth (1–12): ", median_bmonth, "\n", sep = "")
+```
+
+
+
+```{r}
+# 6) Create bseason, cross-check with bmonth, and sum columns
+
+# a) Northern Meteorological seasons by MONTH
+# winter = Dec–Feb (12,1,2), spring = Mar–May (3–5), summer = Jun–Aug (6–8), fall = Sep–Nov (9–11)
+Data1_csv <- Data1_csv %>%
+  mutate(
+    bseason = case_when(
+      bmonth %in% c(12, 1, 2)  ~ "Winter",
+      bmonth %in% 3:5          ~ "Spring",
+      bmonth %in% 6:8          ~ "Summer",
+      bmonth %in% 9:11         ~ "Fall",
+      TRUE                     ~ NA_character_
+    )
+  )
+
+# b) Table of Seasons in columns and bmonths in rows
+tab_bmonth_bseason <- table(bmonth = Data1_csv$bmonth,
+                            bseason = Data1_csv$bseason,
+                            useNA = "ifany")
+tab_bmonth_bseason
+```
+
+
+```{r}
+# c) Sum the columns with addmargins to answer "How many classmates were born in each season?"
+season_counts <- addmargins(tab_bmonth_bseason, margin = 2)  # margin=2 sums columns
+season_counts
+
+# Extract just the season totals row (the "Sum") for a clean printed answer
+if ("Sum" %in% rownames(season_counts)) {
+  totals <- season_counts["Sum", , drop = TRUE]
+} else {
+  # Fallback in case addmargins presents differently by R version
+  totals <- colSums(tab_bmonth_bseason, na.rm = TRUE)
+}
+
+cat("\nNumber of classmates born in each season:\n")
+print(totals)
+```
+
+
+```{r}
+# Ensure fav_num is numeric; keep original for reference
+Data1_csv <- Data1_csv %>%
+  mutate(
+    fav_num_raw = fav_num,
+    fav_num = suppressWarnings(as.numeric(fav_num))
+  )
+
+# Basic sanity check of like_cats and fav_num
+cat("like_cats levels and counts:\n")
+print(table(Data1_csv$like_cats, useNA = "ifany"))
+
+cat("\nSummary of fav_num (numeric attempt):\n")
+print(summary(Data1_csv$fav_num))
+
+# Compute median fav_num by like_cats (excluding NAs in fav_num)
+med_by_likecats <- Data1_csv %>%
+  group_by(like_cats) %>%
+  summarize(n = sum(!is.na(fav_num)),
+            median_fav_num = median(fav_num, na.rm = TRUE)) %>%
+  arrange(desc(n))
+
+med_by_likecats
+```
+
+
+```{r}
+# OPTIONAL: A simple visualization (won't run if fav_num is very sparse)
+# You can comment this out if a plot is not desired in the knitted output.
+Data1_csv %>%
+  filter(!is.na(fav_num)) %>%
+  ggplot(aes(x = like_cats, y = fav_num)) +
+  geom_boxplot() +
+  labs(title = "Favorite Number by Like-Cats Group",
+       x = "like_cats",
+       y = "fav_num")
+```
+
+
+```{r}
+```# Answer (printed):
+cat("Interpretation:\n",
+    "- The table above shows the number of non-missing fav_num values (n) for each like_cats group and their median fav_num.\n",
+    "- Compare the medians to see which group tends to choose higher/lower favorite numbers.\n", sep = "")
+```
+
+```{r}
+GITHUB_PAT=ghp_ROUx0t5sTTJrJ72luXYRs29oo5irt50jpkgJ
+
+```
+
+
